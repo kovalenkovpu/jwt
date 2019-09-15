@@ -1,0 +1,16 @@
+{
+  "name": "jwt",
+  "version": "1.0.0",
+  "description": "jwt test",
+  "main": "app.js",
+  "scripts": {
+    "start": "nodemon app.js"
+  },
+  "author": "Kovalenkov P",
+  "license": "ISC",
+  "devDependencies": {
+    "express": "^4.17.1",
+    "jsonwebtoken": "^8.5.1",
+    "nodemon": "^1.19.2"
+  }
+}
