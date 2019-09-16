@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
 
 const app = express();
 
@@ -10,17 +11,21 @@ mongoose.connect(
   {
     useNewUrlParser: true,
     useUnifiedTopology: true,
+    useCreateIndex: true,
+    useFindAndModify: false,
   },
   () => console.log('Connected to DB!'),
 );
-
-const userSchema = mongoose.Schema({
-  username: String,
-  password: String,
-  token: String,
+  
+const UserSchema = new mongoose.Schema({
+  userName: { type: String, },
+  email: { type: String, },
+  token: { type: String, },
 });
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model("Users", UserSchema);
 
+app.use(bodyParser.json());
+  
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to the API',
@@ -40,27 +45,26 @@ app.post('/api/posts', verifyToken, (req, res) => {
   });
 });
 
-app.post('/api/login', (req, res) => {
-  const mockUserData = {
-    username: 'John',
-    password: 'john@gmail.com',
-  };
+app.post('/api/login', async (req, res) => {
+  const { userName, email } = req.body;
+  const userData = { userName, email };
 
-  jwt.sign({ mockUserData }, process.env.USER_SECRET, (err, token) => {
+  jwt.sign({ userData }, process.env.USER_SECRET, async (err, token) => {
     const user = new User({
-      ...mockUserData,
+      ...userData,
       token,
     });
+    
+    try {
+      const createdUser = await user.save();
 
-    user
-      .save()
-      .then(data => {
-        console.log('Data stored!');
-        res.json({
-          data,
-        });
-      })
-      .catch(e => console.log('Error while storing data!'));
+      res.json({
+        createdUser,
+      });
+    } catch(e) {
+      console.log('Error while storing data!', e);
+      res.sendStatus(500);
+    }
   });
 });
 
