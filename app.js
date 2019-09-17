@@ -1,8 +1,12 @@
 require('dotenv').config();
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
+const isEmpty = require('lodash/isEmpty');
+const User = require('./models/User');
+// utils
+const verifyToken = require('./utils/verifyToken');
 
 const app = express();
 
@@ -16,13 +20,6 @@ mongoose.connect(
   },
   () => console.log('Connected to DB!'),
 );
-  
-const UserSchema = new mongoose.Schema({
-  userName: { type: String, },
-  email: { type: String, },
-  token: { type: String, },
-});
-const User = mongoose.model("Users", UserSchema);
 
 app.use(bodyParser.json());
   
@@ -45,44 +42,64 @@ app.post('/api/posts', verifyToken, (req, res) => {
   });
 });
 
-app.post('/api/login', async (req, res) => {
-  const { userName, email } = req.body;
-  const userData = { userName, email };
+// TODO: create Router for user actions
+// Register
+app.post('/api/user/signup', async (req, res) => {
+  const { email, password } = req.body;
+  const userData = { email, password };
+  const [currentUser] = await User.find({ email, password });
+
+  if (currentUser) {
+    return res.json({
+      message: 'User already exists, please login'
+    });
+  }
 
   jwt.sign({ userData }, process.env.USER_SECRET, async (err, token) => {
-    const user = new User({
-      ...userData,
-      token,
-    });
+    const user = new User(userData);
     
     try {
-      const createdUser = await user.save();
+      await user.save();
 
+      res.header('authorization', `Bearer ${token}`);
       res.json({
-        createdUser,
+        message: 'User successfully created'
       });
-    } catch(e) {
-      console.log('Error while storing data!', e);
+    } catch(error) {
       res.sendStatus(500);
+      res.json({ error });
     }
   });
 });
 
-// verifyToken
-function verifyToken(req, res, next) {
-  const bearerHeader = req.headers['authorization'];
-  
-  if (bearerHeader) {
-    const bearer = bearerHeader.split(' ');
-    const bearerToken = bearer[1];
+// Login
+app.post('/api/user/login', async (req, res) => {
+  const { email, password } = req.body;
+  const [currentUser] = await User.find({ email, password });
+  const userData = { email, password };
 
-    req.token = bearerToken;
-    next();
+  if (!isEmpty(currentUser)) {
+    jwt.sign({ userData }, process.env.USER_SECRET, async (err, token) => {
+      try {
+        res.header('authorization', `Bearer ${token}`);
+        res.json({
+          message: 'You have logged in',
+          email,
+        });
+      } catch(error) {
+        res.sendStatus(500);
+        res.json({ error });
+      }
+    });
   } else {
+    res.json({
+      message: 'User doesnt exist, please create account',
+    });
     res.sendStatus(403);
   }
-}
+});
 
+// run server
 app.listen(5000, () => {
   console.log('Server listening on 5000');
 });
